@@ -1,0 +1,396 @@
+---
+title: "Data 511, Analyzing NFL Seasons"
+author: "Kristofer Hormoz"
+date: ""
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Theses are all the packages used in this project.
+
+library(tinytex)
+
+library(caret)
+
+library(psych)
+
+library(ggplot2)
+
+library(gridExtra)
+
+library(rattle)
+
+library(plyr)
+
+library(RANN)
+
+library(rpart)
+
+library(rpart.plot)
+```{r error=TRUE, include = FALSE}
+# error = TRUE means to ignore the error messages
+# packages used --------------------------------------------------------------
+library(tinytex)
+library(caret)
+library(psych)
+library(ggplot2)
+library(gridExtra)
+library(rattle)
+library(plyr)
+library(RANN)
+library(rpart)
+library(rpart.plot)
+```
+
+
+In this project I will be analyzing some stats from the 2020 NFL season. 
+In doing so we will go over everything that we did in Data 511.
+
+I will be getting my data from https://www.pro-football-reference.com/
+
+**Section 1: Data Preparation Phase**
+
+This is the 2020 nfl season data set
+```{r}
+nfl_2020_season <- read.csv("nfl_2020_season.csv")
+colnames(nfl_2020_season) <- nfl_2020_season[1,] # had to fix the column names
+nfl_2020_season <- nfl_2020_season[-c(1),] # deleted a row 
+
+summary(nfl_2020_season[,c(1:5)]) # just looking at first 5 variables
+# all of the variables are char when they should be numeric, we need to fix this
+```
+
+
+
+
+We will now fix some of the variables. Note that we will keep "Tm" which
+stands for team as a char variable. Variables 16 to 28 will be removed.
+```{r, include=FALSE}
+nfl_2020_season$Rk <- as.numeric(as.character(nfl_2020_season$Rk)) #converting 
+                                                              # rank to numeric
+
+nfl_2020_season$PF <- as.numeric(as.character(nfl_2020_season$PF))
+
+nfl_2020_season[,c(4)]<- as.numeric(as.character(nfl_2020_season[,c(4)]))
+
+nfl_2020_season[,c(5)]<- as.numeric(as.character(nfl_2020_season[,c(5)]))
+
+# or use a for loop
+
+for (i in c(3:21)){
+  nfl_2020_season[,c(i)]<-
+  as.numeric(as.character(nfl_2020_season[,c(i)]))
+}
+
+summary(nfl_2020_season)
+```
+
+
+
+
+These will be the variables we will be analyzing in our project.
+
+The variables used are;
+
+1) RK: symbolizes team rank
+
+2) Tm: symbolizes the team
+
+3) PF: symbolizes points fought for ( i.e total points gained in a season)
+
+4) Yds: symbolizes yards gained by passing
+
+5) Ply: symbolizes offensive plays (pass attempts + Rush attempts + Times Sacked)
+
+6) Y/p: symbolizes yards per play
+
+7) TO: symbolizes Turn overs lost
+
+8) FL: Symbolizes fumbles lost
+
+9) 1std: Symbolizes first downs gained
+
+10) cmp: Symbolizes completions
+
+11) Att: symbolizes attempts made by passing 
+
+12) Yds.1: Symbolizes Total yards gained by rushing
+
+13) TD: symbolizes touchdowns
+
+14) Int: Symbolizes interceptions thrown
+
+15) Yds.1: Symbolizes total yards from passing
+
+16) Yds.2: Symbolizes total yards made by rushing
+
+24) year: symbolizes year
+```{r}
+# now we will fix up pur data set and only keep variables we are interested in
+
+nfl_2020_season <- nfl_2020_season[,c(1:21)]
+
+nfl_2020_season$year <- 2020 # adding year 2020
+nfl_2020_season$G <- NULL
+str(nfl_2020_season) # str gives the structure of each variable.
+```
+
+
+
+
+The next lines of code, we are downloading more data and preparing it. 
+Seasons 2016 to 2019 will be added.
+```{r}
+nfl_2019_season <- read.csv("nfl_2019_season.csv")
+
+colnames(nfl_2019_season) <- nfl_2019_season[1,] # had to fix the column names
+nfl_2019_season <- nfl_2019_season[-c(1),] # deleted a row 
+
+nfl_2018_season <- read.csv("nfl_2018_season.csv")
+
+colnames(nfl_2018_season) <- nfl_2018_season[1,] # had to fix the column names
+nfl_2018_season <- nfl_2018_season[-c(1),] # deleted a row 
+
+nfl_2017_season <- read.csv("nfl_2017_season.csv")
+
+colnames(nfl_2017_season) <- nfl_2017_season[1,] # had to fix the column names
+nfl_2017_season <- nfl_2017_season[-c(1),] # deleted a row 
+
+nfl_2016_season <- read.csv("nfl_2016_season.csv")
+
+colnames(nfl_2016_season) <- nfl_2016_season[1,] # had to fix the column names
+nfl_2016_season <- nfl_2016_season[-c(1),] # deleted a row =
+```
+
+
+
+
+```{r, include=FALSE}
+# changing the variables for the 2019 season.
+
+nfl_2019_season$Rk <- as.numeric(as.character(nfl_2019_season$Rk)) 
+
+nfl_2019_season$PF <- as.numeric(as.character(nfl_2019_season$PF))
+
+for (i in c(3:21)){
+  nfl_2019_season[,c(i)]<-
+  as.numeric(as.character(nfl_2019_season[,c(i)]))
+}
+
+nfl_2019_season <- nfl_2019_season[c(1:32),c(1:21)]
+
+nfl_2019_season$year <- 2019 # adding year 2019 
+nfl_2019_season$G <- NULL
+summary(nfl_2019_season)
+```
+
+
+
+```{r,include=FALSE}
+
+# changing the variables for the 2018 season.
+
+nfl_2018_season$Rk <- as.numeric(as.character(nfl_2018_season$Rk)) 
+
+nfl_2018_season$PF <- as.numeric(as.character(nfl_2018_season$PF))
+
+for (i in c(3:21)){
+  nfl_2018_season[,c(i)]<-
+  as.numeric(as.character(nfl_2018_season[,c(i)]))
+}
+
+nfl_2018_season <- nfl_2018_season[c(1:32),c(1:21)]
+
+nfl_2018_season$year <- 2018
+nfl_2018_season$G <- NULL
+summary(nfl_2018_season)
+```
+
+
+```{r,include=FALSE}
+# changing the variables for the 2017 season.
+
+nfl_2017_season$Rk <- as.numeric(as.character(nfl_2017_season$Rk)) 
+
+nfl_2017_season$PF <- as.numeric(as.character(nfl_2017_season$PF))
+
+for (i in c(3:21)){
+  nfl_2017_season[,c(i)]<-
+  as.numeric(as.character(nfl_2017_season[,c(i)]))
+}
+
+nfl_2017_season <- nfl_2017_season[c(1:32),c(1:21)]
+
+nfl_2017_season$year <- 2017
+nfl_2017_season$G <- NULL
+summary(nfl_2017_season)
+```
+
+
+```{r,include=FALSE}
+# changing the variables for the 2016 season.
+
+nfl_2016_season$Rk <- as.numeric(as.character(nfl_2016_season$Rk)) 
+
+nfl_2016_season$PF <- as.numeric(as.character(nfl_2016_season$PF))
+
+for (i in c(3:21)){
+  nfl_2016_season[,c(i)]<-
+  as.numeric(as.character(nfl_2016_season[,c(i)]))
+}
+
+nfl_2016_season <- nfl_2016_season[c(1:32),c(1:21)]
+
+nfl_2016_season$year <- 2016
+nfl_2016_season$G <- NULL
+summary(nfl_2016_season)
+```
+
+**Combining the Data into One Data Frame**
+
+Here we are merging the data sets by the rows into one data frame. This will
+Give a new data frame "nfl" with 160 observations with 15 variables.
+```{r}
+nfl <- rbind(nfl_2020_season[,c(21,1:20)],nfl_2019_season[,c(21,1:20)],
+             nfl_2018_season[,c(21,1:20)],nfl_2017_season[,c(21,1:20)],
+             nfl_2016_season[,c(21,1:20)])
+
+nfl$pass_Att <- nfl$Att
+nfl$rush_Att <- nfl$Att.1
+nfl$pass_TD <- nfl$TD
+nfl$rush_TD <- nfl$TD.1
+
+nfl$Att <- NULL
+nfl$Att.1 <- NULL
+nfl$TD <- NULL
+nfl$TD.1 <- NULL
+
+```
+
+
+**Exploratory Data Analysis Phase**
+
+
+
+*step (2) using decision trees to find optimal bins*
+
+```{r}
+# Normalized histogram w churn overlay.
+
+grid.arrange(
+ggplot(nfl, aes(pass_Att)) + 
+  geom_histogram(aes(fill = pass_TD), 
+                 color = "black", binwidth= 20, position = "fill") + 
+  xlab("Passing Attempts Made") + 
+  ylab("Touchdowns") + 
+  ggtitle("TD Made By Passing"),
+
+
+
+# Non-normalized histogram w overlay.
+ggplot(nfl, aes(pass_Att)) + 
+  geom_histogram(aes(fill = pass_TD), 
+                 color = "black", binwidth = 1, position = "stack") + 
+  xlab("Passing Attempts Made") + 
+  ylab("Touchdowns") + 
+  ggtitle("TD Made by Passing"),
+
+
+ggplot(nfl, aes(rush_Att)) + 
+  geom_histogram(aes(fill = rush_TD), 
+                 color = "black", binwidth= 20, position = "fill") + 
+  xlab("Rushing Attempts Made") + 
+  ylab("Touchdowns") + 
+  ggtitle("TD Made By Rushing"),
+
+
+
+# Non-normalized histogram w overlay.
+ggplot(nfl, aes(rush_Att)) + 
+  geom_histogram(aes(fill = rush_TD), 
+                 color = "black", binwidth = 1, position = "stack") + 
+  xlab("Rushing Attempts Made") + 
+  ylab("Touchdowns") + 
+  ggtitle("TD Made by Rushing")
+
+)
+
+nfl$pass_TD_cut <- cut(nfl$pass_TD, breaks = c(0,30,40,100))
+nfl$rush_TD_cut <- cut(nfl$rush_TD, breaks = c(0,10,20,30))
+
+nfl$pass_Att_cut <- cut(nfl$pass_Att, breaks = c(0,500,600,700))
+nfl$rush_Att_cut <- cut(nfl$rush_Att, breaks = c(0,400,475,600))
+
+nfl$pass_Att_cut <- as.factor(nfl$pass_Att_cut)
+nfl$rush_Att_cut <- as.factor(nfl$pass_Att_cut)
+nfl$pass_TD_cut <- as.factor(nfl$pass_TD_cut)
+nfl$rush_TD_cut <- as.factor(nfl$rush_TD_cut)
+
+grid.arrange(
+# non normalized
+ggplot(nfl, aes(pass_Att_cut))+ 
+  geom_bar(aes(fill = pass_TD_cut),position = "stack")+ 
+  xlab("Passing Attempts Made")+
+  ylab("Touchdowns Made"),
+
+#normalized
+ggplot(nfl, aes(pass_Att_cut))+ 
+  geom_bar(aes(fill = pass_TD_cut) ,position = "fill")+ 
+  xlab("Passing Attempts Made")+
+  ylab("Touchdowns Made"),
+
+ggplot(nfl, aes(rush_Att_cut))+ 
+  geom_bar(aes(fill = rush_TD_cut),position = "stack")+ 
+  xlab("Rushing Attempts Made")+
+  ylab("Touchdowns Made"),
+
+#normalized
+ggplot(nfl, aes(rush_Att_cut))+ 
+  geom_bar(aes(fill = rush_TD_cut) ,position = "fill")+ 
+  xlab("Rushing Attempts Made")+
+  ylab("Touchdowns Made")
+
+)
+
+grid.arrange(
+
+  ggplot(data = nfl,
+       aes(x = pass_Att_cut, y = pass_TD, color = pass_Att_cut)) +
+  geom_boxplot(size = 1.2, alpha = .5) +
+  xlab("Passing Attempts Made") +
+  ylab("Touchdowns Made By Passing") +
+  labs(title = "Boxplot of TD's Made By Passing Attempts") +
+  scale_color_brewer(palette="Dark2") +
+  geom_jitter(shape=16, position=position_jitter(0.2)),
+
+
+ggplot(data = nfl,
+       aes(x = rush_Att_cut, y = rush_TD, color = rush_Att_cut)) +
+  geom_boxplot(size = 1.2, alpha = .5) +
+  xlab("Rushing Attempts Made") +
+  ylab("Touchdowns Made By Rushing") +
+  labs(title = "Boxplot of TD's Made By Rushing Attempts") +
+  scale_color_brewer(palette="Dark2") +
+  geom_jitter(shape=16, position=position_jitter(0.2))
+
+)
+# then do a contingency table
+
+t1 <- table(nfl$pass_TD_cut, nfl$pass_Att_cut)
+round(prop.table(t1,2)*100,2)
+
+
+t2 <- table(nfl$rush_TD_cut, nfl$rush_Att_cut)
+round(prop.table(t2,2)*100,2)
+
+```
+
+
+
